@@ -131,9 +131,9 @@ local function pad_cell(s, width, center)
   local gap = width - dw(s)
   if center then
     local left = math.floor(gap / 2)
-    return string.rep(" ", left) .. s .. string.rep(" ", gap - left)
+    return string.rep(" ", left) .. s .. string.rep(" ", gap - left), left
   end
-  return s .. string.rep(" ", gap)
+  return s .. string.rep(" ", gap), 0
 end
 
 -- Render rows to lines. Also returns meta: per row {first=line idx, lines={{parts, starts}}}
@@ -208,10 +208,11 @@ local function render_rows(rows, opts)
       local line, parts, offs = "│", {}, {}
       for ci = 1, ncols do
         local txt = cells[ci][li] or ""
+        local padded, left = pad_cell(txt, widths[ci], ri == 1)
         line = line .. p
-        offs[ci] = #line
+        offs[ci] = #line + left
         parts[ci] = txt
-        line = line .. pad_cell(txt, widths[ci], ri == 1) .. p .. "│"
+        line = line .. padded .. p .. "│"
       end
       out[#out + 1] = line
       meta[ri].lines[li] = { parts = parts, starts = offs }
@@ -296,15 +297,21 @@ local function write(snap, r, c, off, opts, join)
   r = math.max(1, math.min(r, #meta))
   local m = meta[r]
   c = math.max(1, math.min(c, #m.lines[1].parts))
-  off = off or math.huge -- default: end of the cell text
   local li, col = 1, 0
-  for i, ln in ipairs(m.lines) do
-    local n = #ln.parts[c]
-    if off <= n or i == #m.lines then
-      li, col = i, math.min(off, n)
-      break
+  if off == nil then
+    -- default: end of the cell text (last line of this cell that has text)
+    for i, ln in ipairs(m.lines) do
+      if #ln.parts[c] > 0 then li, col = i, #ln.parts[c] end
     end
-    off = off - n - 1
+  else
+    for i, ln in ipairs(m.lines) do
+      local n = #ln.parts[c]
+      if off <= n or i == #m.lines then
+        li, col = i, math.min(off, n)
+        break
+      end
+      off = off - n - 1
+    end
   end
   local target = m.lines[li]
   local pos = { snap.top + m.first - 1 + li - 1, target.starts[c] + col }
