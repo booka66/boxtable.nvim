@@ -1,13 +1,6 @@
 # boxtable.nvim
 
-Turn pipe- or tab-delimited rows into Unicode box-drawing tables, with word-wrapped cells and a centered header row.
-
-```
-| | In pipeline.ts | Before SQS enqueue |
-| Pro | one controlled place, already has the customer doc + claim logic | doesn't block event processing for everyone |
-```
-
-`:'<,'>BoxTable` →
+Unicode box-drawing tables you can edit in place. Convert pipe/tab rows into a table, then move between cells, add/remove rows and columns, and type into cells — the table re-renders (with word-wrapped cells and a centered header row) whenever you leave insert mode.
 
 ```
 ┌─────┬────────────────────────────────────┬─────────────────────────────────────────────┐
@@ -23,26 +16,45 @@ Turn pipe- or tab-delimited rows into Unicode box-drawing tables, with word-wrap
 lazy.nvim:
 
 ```lua
-{ "booka66/boxtable.nvim", cmd = "BoxTable", opts = {} }
+{ "booka66/boxtable.nvim", opts = {} }
 ```
 
 ## Usage
 
-- `:'<,'>BoxTable` — convert the selected lines. Input can be `| a | b |`, `a | b`, tab-separated, or an existing box table (re-run to reflow after editing).
+- `:BoxTable` — insert an empty 2×2 table at the cursor.
+- `:'<,'>BoxTable` — convert selected lines. Accepts `| a | b |`, `a | b`, tab-separated, or an existing box table (reflows it). Markdown `|---|` rows are ignored. First row is the header.
 - `:'<,'>BoxTable 40` — override max column width for this call.
-- Markdown `|---|---|` separator rows are ignored. First row is the header (centered).
 
-Suggested mapping:
+Whenever the cursor is inside a table, editing keymaps are active (buffer-local, normal + insert mode):
 
-```lua
-vim.keymap.set("v", "<leader>tb", ":BoxTable<CR>")
-```
+| Key       | Action                      |
+|-----------|-----------------------------|
+| `<Tab>`   | next cell (past the last cell adds a row) |
+| `<S-Tab>` | previous cell               |
+| `<A-h/j/k/l>` | move to cell left/down/up/right |
+| `<A-o>` / `<A-O>` | add row below / above |
+| `<A-c>` / `<A-C>` | add column right / left |
+| `<A-d>` / `<A-D>` | delete row / column |
+
+Just type into a cell; on `InsertLeave` (or any normal-mode change) the table is re-rendered and the cursor stays in the same cell. Don't press `<CR>` inside a cell — use `<A-o>` for a new row. To make the first row a header, `<A-O>` on row 1.
+
+`:BoxTableMode` toggles the keymaps manually (use with `auto_mode = false`).
 
 ## Options
 
 ```lua
 require("boxtable").setup({
-  max_width = 90, -- wrap cell contents beyond this display width
-  pad = 1,        -- spaces on each side of cell contents
+  max_width = 90,   -- wrap cell contents beyond this display width
+  pad = 1,          -- spaces on each side of cell contents
+  auto_mode = true, -- enable keymaps when the cursor is inside a table
+  keymaps = {       -- set any to "" to disable
+    next_cell = "<Tab>", prev_cell = "<S-Tab>",
+    cell_left = "<A-h>", cell_down = "<A-j>", cell_up = "<A-k>", cell_right = "<A-l>",
+    row_below = "<A-o>", row_above = "<A-O>",
+    col_right = "<A-c>", col_left = "<A-C>",
+    delete_row = "<A-d>", delete_col = "<A-D>",
+  },
 })
 ```
+
+All actions are also exposed as functions (`require("boxtable").row_below()` etc.) for custom mappings.
