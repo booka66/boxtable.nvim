@@ -2,7 +2,7 @@
 local M = {}
 
 M.config = {
-  max_width = 90, -- wrap cell contents beyond this display width
+  width = 90,     -- target total table width; wide columns wrap to fit
   pad = 1,        -- spaces on each side of cell contents
   auto_mode = true, -- enable editing keymaps when the cursor enters a table
   keymaps = {
@@ -144,12 +144,49 @@ local function render_rows(rows, opts)
   if ncols == 0 then ncols = 1 end
   for _, r in ipairs(rows) do for i = #r + 1, ncols do r[i] = "" end end
 
+  -- natural (unwrapped) width and longest word per column
+  local natural, minw = {}, {}
+  for ci = 1, ncols do natural[ci], minw[ci] = 1, 1 end
+  for _, r in ipairs(rows) do
+    for ci = 1, ncols do
+      natural[ci] = math.max(natural[ci], dw(r[ci]))
+      for w in r[ci]:gmatch("%S+") do minw[ci] = math.max(minw[ci], dw(w)) end
+    end
+  end
+  -- fit to total width: columns that fit their fair share keep their natural
+  -- width; the rest share what remains proportionally (never below longest word)
+  local limit = {}
+  for ci = 1, ncols do limit[ci] = natural[ci] end
+  local avail = (opts.width or math.huge) - (ncols * (2 * opts.pad + 1) + 1)
+  local total = 0
+  for ci = 1, ncols do total = total + natural[ci] end
+  if total > avail then
+    local fixed, flex = {}, {}
+    local remaining = avail
+    local changed = true
+    while changed do
+      changed = false
+      local fsum, fn = 0, 0
+      for ci = 1, ncols do if not fixed[ci] then fsum, fn = fsum + natural[ci], fn + 1 end end
+      for ci = 1, ncols do
+        if not fixed[ci] and natural[ci] <= remaining * natural[ci] / fsum + 0.5 and natural[ci] <= remaining / fn then
+          fixed[ci], remaining, changed = true, remaining - natural[ci], true
+        end
+      end
+    end
+    local fsum = 0
+    for ci = 1, ncols do if not fixed[ci] then fsum = fsum + natural[ci] end end
+    for ci = 1, ncols do
+      if not fixed[ci] then limit[ci] = math.max(minw[ci], math.floor(remaining * natural[ci] / fsum)) end
+    end
+  end
+
   local widths, wrapped = {}, {}
   for ci = 1, ncols do widths[ci] = 1 end
   for ri, r in ipairs(rows) do
     wrapped[ri] = {}
     for ci = 1, ncols do
-      local ls = wrap(r[ci], opts.max_width)
+      local ls = wrap(r[ci], limit[ci])
       wrapped[ri][ci] = ls
       for _, l in ipairs(ls) do widths[ci] = math.max(widths[ci], dw(l)) end
     end

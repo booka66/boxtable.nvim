@@ -23,7 +23,7 @@ lazy.nvim:
 
 - `:BoxTable` — insert an empty 2×2 table at the cursor.
 - `:'<,'>BoxTable` — convert selected lines. Accepts `| a | b |`, `a | b`, tab-separated, or an existing box table (reflows it). Markdown `|---|` rows are ignored. First row is the header.
-- `:'<,'>BoxTable 40` — override max column width for this call.
+- `:'<,'>BoxTable 60` — override the total table width for this call.
 
 Whenever the cursor is inside a table, editing keymaps are active (buffer-local, normal + insert mode):
 
@@ -44,7 +44,7 @@ Just type into a cell; on `InsertLeave` (or any normal-mode change) the table is
 
 ```lua
 require("boxtable").setup({
-  max_width = 90,   -- wrap cell contents beyond this display width
+  width = 90,       -- target total table width; the widest columns wrap to fit
   pad = 1,          -- spaces on each side of cell contents
   auto_mode = true, -- enable keymaps when the cursor is inside a table
   keymaps = {       -- set any to "" to disable
