@@ -8,16 +8,16 @@ M.config = {
   keymaps = {
     next_cell = "<Tab>",
     prev_cell = "<S-Tab>",
-    cell_left = "<A-h>",
-    cell_down = "<A-j>",
-    cell_up = "<A-k>",
-    cell_right = "<A-l>",
-    row_below = "<A-o>",
-    row_above = "<A-O>",
-    col_right = "<A-c>",
-    col_left = "<A-C>",
-    delete_row = "<A-d>",
-    delete_col = "<A-D>",
+    cell_left = "<leader>th",
+    cell_down = "<leader>tj",
+    cell_up = "<leader>tk",
+    cell_right = "<leader>tl",
+    row_below = "<leader>to",
+    row_above = "<leader>tO",
+    col_right = "<leader>tc",
+    col_left = "<leader>tC",
+    delete_row = "<leader>td",
+    delete_col = "<leader>tD",
   },
 }
 
@@ -396,7 +396,11 @@ function M.set_mode(on)
   }
   vim.b.boxtable_mode = on
   if on then
-    for name, fn in pairs(actions) do map({ "n", "i" }, k[name], fn, name:gsub("_", " ")) end
+    for name, fn in pairs(actions) do
+      -- Tab/S-Tab work in insert mode too; leader-style keys are normal-mode only
+      local modes = (name == "next_cell" or name == "prev_cell") and { "n", "i" } or { "n" }
+      map(modes, k[name], fn, name:gsub("_", " "))
+    end
     vim.api.nvim_create_autocmd({ "InsertLeave", "TextChanged" }, {
       group = vim.api.nvim_create_augroup("boxtable_buf_" .. vim.api.nvim_get_current_buf(), { clear = true }),
       buffer = 0,
