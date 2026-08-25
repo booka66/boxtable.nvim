@@ -248,9 +248,14 @@ local function snapshot()
 end
 
 -- Re-render the table and put the cursor in cell (r, c) at byte offset off.
-local function write(snap, r, c, off, opts)
+local function write(snap, r, c, off, opts, join)
   local lines, meta = render_rows(snap.rows, opts)
-  vim.api.nvim_buf_set_lines(0, snap.top - 1, snap.bot, false, lines)
+  local cur = vim.api.nvim_buf_get_lines(0, snap.top - 1, snap.bot, false)
+  if not vim.deep_equal(cur, lines) then
+    -- fold the re-render into the user's own edit so a single undo reverts both
+    if join then pcall(vim.cmd, "undojoin") end
+    vim.api.nvim_buf_set_lines(0, snap.top - 1, snap.bot, false, lines)
+  end
   r = math.max(1, math.min(r, #meta))
   local m = meta[r]
   c = math.max(1, math.min(c, #m.lines[1].parts))
@@ -268,9 +273,9 @@ local function write(snap, r, c, off, opts)
   vim.api.nvim_win_set_cursor(0, { snap.top + m.first - 1 + li - 1, target.starts[c] + col })
 end
 
-function M.refresh(opts)
+function M.refresh(opts, join)
   local s = snapshot()
-  if s then write(s, s.r, s.c, s.off, opts) end
+  if s then write(s, s.r, s.c, s.off, opts, join) end
 end
 
 local function with_snap(fn)
@@ -359,7 +364,11 @@ function M.set_mode(on)
       group = vim.api.nvim_create_augroup("boxtable_buf_" .. vim.api.nvim_get_current_buf(), { clear = true }),
       buffer = 0,
       callback = function()
-        if vim.b.boxtable_mode then M.refresh() end
+        if not vim.b.boxtable_mode then return end
+        -- don't fight undo/redo: an undo leaves seq_cur behind seq_last
+        local u = vim.fn.undotree()
+        if u.seq_cur ~= u.seq_last then return end
+        M.refresh(nil, true)
       end,
     })
   else
