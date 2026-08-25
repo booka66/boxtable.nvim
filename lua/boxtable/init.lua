@@ -296,7 +296,7 @@ local function write(snap, r, c, off, opts, join)
   r = math.max(1, math.min(r, #meta))
   local m = meta[r]
   c = math.max(1, math.min(c, #m.lines[1].parts))
-  off = off or 0
+  off = off or math.huge -- default: end of the cell text
   local li, col = 1, 0
   for i, ln in ipairs(m.lines) do
     local n = #ln.parts[c]
@@ -307,7 +307,9 @@ local function write(snap, r, c, off, opts, join)
     off = off - n - 1
   end
   local target = m.lines[li]
-  vim.api.nvim_win_set_cursor(0, { snap.top + m.first - 1 + li - 1, target.starts[c] + col })
+  local pos = { snap.top + m.first - 1 + li - 1, target.starts[c] + col }
+  vim.api.nvim_win_set_cursor(0, pos)
+  return pos
 end
 
 function M.refresh(opts, join)
@@ -320,7 +322,7 @@ local function with_snap(fn)
     local s = snapshot()
     if not s then return end
     local r, c, off = fn(s)
-    write(s, r or s.r, c or s.c, off or 0)
+    return write(s, r or s.r, c or s.c, off)
   end
 end
 
@@ -376,8 +378,16 @@ end)
 local function map(mode, lhs, fn, desc)
   if lhs and lhs ~= "" then
     vim.keymap.set(mode, lhs, function()
-      if vim.fn.mode() == "i" then vim.cmd("stopinsert") end
-      vim.schedule(fn)
+      local was_insert = vim.fn.mode() == "i"
+      if was_insert then vim.cmd("stopinsert") end
+      vim.schedule(function()
+        local pos = fn()
+        -- if invoked from insert mode, resume inserting at the end of the target cell
+        if was_insert and pos then
+          vim.cmd("startinsert")
+          vim.schedule(function() vim.api.nvim_win_set_cursor(0, pos) end)
+        end
+      end)
     end, { buffer = 0, desc = "boxtable: " .. desc })
   end
 end

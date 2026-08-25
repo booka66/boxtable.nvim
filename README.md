@@ -29,7 +29,7 @@ Whenever the cursor is inside a table, editing keymaps are active (buffer-local)
 
 | Key       | Action                      |
 |-----------|-----------------------------|
-| `<Tab>`   | next cell (past the last cell adds a row) — normal + insert |
+| `<Tab>`   | next cell, cursor at end of its text (past the last cell adds a row) — normal + insert; from insert mode you stay in insert |
 | `<S-Tab>` | previous cell — normal + insert |
 | `<leader>th/j/k/l` | move to cell left/down/up/right |
 | `<leader>to` / `<leader>tO` | add row below / above |
